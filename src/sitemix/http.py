@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import time
 from dataclasses import dataclass
 
@@ -9,7 +10,7 @@ from urllib3.util.retry import Retry
 
 from sitemix import __version__
 
-USER_AGENT = f"sitemix/{__version__} (+https://github.com/<org>/sitemix)"
+USER_AGENT = f"sitemix/{__version__} (+https://github.com/shaypal5/sitemix)"
 
 
 @dataclass
@@ -83,7 +84,6 @@ class DelayController:
     def sleep(self) -> None:
         if self.delay <= 0 and self.jitter <= 0:
             return
-        import random
 
         extra = random.uniform(0, self.jitter) if self.jitter > 0 else 0.0
         time.sleep(self.delay + extra)

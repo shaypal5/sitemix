@@ -263,7 +263,7 @@ def site(
         raise typer.BadParameter("max_pages must be positive", param_hint="--max-pages")
 
     if concurrency <= 0:
-        raise typer.BadParameter("concurrency must be >= 1", param_hint="--concurrency")
+        raise typer.BadParameter("concurrency must be positive", param_hint="--concurrency")
 
     query_filter = not allow_query_heavy
     respect_robots = not ignore_robots

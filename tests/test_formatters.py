@@ -13,7 +13,7 @@ def _sample_page() -> PageDoc:
         date_published="2025-10-01",
         language="en",
         text="Hello world\n\nSecond paragraph.",
-        extraction_attempts=[ExtractionAttempt(strategy="default", text_len=27, success=True)],
+        extraction_attempts=[ExtractionAttempt(strategy="default", text_len=30, success=True)],
         warnings=[],
     )
 

@@ -4,13 +4,14 @@ import fnmatch
 import os
 import posixpath
 import re
-import xml.etree.ElementTree as ET
 from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
+
+from defusedxml import ElementTree as ET
 
 from sitemix.http import DelayController, HttpClient
 from sitemix.schemas import SiteMapEntry, SkippedUrl
@@ -310,8 +311,6 @@ def discover_urls(
             skipped.append(SkippedUrl(url=url, reason="robots-disallow"))
             continue
 
-        discovered.append(SiteMapEntry(url=url, depth=depth))
-
         delay_controller.sleep()
         try:
             fetched = client.fetch_text(url)
@@ -322,6 +321,7 @@ def discover_urls(
         if "html" not in fetched.content_type.lower():
             skipped.append(SkippedUrl(url=url, reason="non-html"))
             continue
+        discovered.append(SiteMapEntry(url=url, depth=depth))
 
         for child in extract_links(fetched.text, fetched.fetched_url):
             if child not in seen:
