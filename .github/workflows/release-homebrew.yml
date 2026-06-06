@@ -82,8 +82,8 @@ jobs:
 
           decision = "publish" if should_publish else "skip"
           with pathlib.Path("/tmp/release_outputs.txt").open("w", encoding="utf-8") as f:
-              f.write(f"publish_decision={decision}\\n")
-              f.write(f"version={version}\\n")
+              print(f"publish_decision={decision}", file=f)
+              print(f"version={version}", file=f)
 
           print(
               "Homebrew release decision:",
