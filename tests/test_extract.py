@@ -43,9 +43,7 @@ def test_apiary_payload_candidate_includes_endpoints_and_examples() -> None:
                                     "examples": [
                                         {
                                             "responses": [
-                                                {
-                                                    "body": '[{"id": 300, "name": "Invoice"}]'
-                                                }
+                                                {"body": '[{"id": 300, "name": "Invoice"}]'}
                                             ]
                                         }
                                     ],
