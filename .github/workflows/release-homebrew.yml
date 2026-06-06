@@ -1,0 +1,138 @@
+name: Release Homebrew
+
+on:
+  workflow_run:
+    workflows: ["Release PyPI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish to Homebrew tap (optional; defaults to pyproject version)"
+        required: false
+        type: string
+
+jobs:
+  update-homebrew-tap:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TAP_REPOSITORY: shaypal5/homebrew-tap
+      HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+    steps:
+      - name: Skip tap update (token not configured)
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN == ''
+        run: echo "No HOMEBREW_TAP_GITHUB_TOKEN configured; skipping tap update."
+
+      - uses: actions/checkout@v4
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && github.event_name == 'workflow_run'
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/checkout@v4
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && github.event_name == 'workflow_dispatch'
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-python@v5
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN != ''
+        with:
+          python-version: "3.12"
+
+      - name: Determine version for tap update
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN != ''
+        id: release_guard
+        run: |
+          python - <<'PY'
+          import os
+          import pathlib
+          import subprocess
+          import tomllib
+
+          manual_version = os.getenv("INPUT_VERSION", "").strip()
+          event_name = os.getenv("GITHUB_EVENT_NAME", "")
+
+          current_version = tomllib.loads(
+              pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+          )["project"]["version"]
+
+          previous_pyproject = subprocess.run(
+              ["git", "show", "HEAD^:pyproject.toml"],
+              check=False,
+              capture_output=True,
+              text=True,
+          )
+          if previous_pyproject.returncode == 0:
+              previous_version = tomllib.loads(previous_pyproject.stdout)["project"]["version"]
+          else:
+              previous_version = None
+
+          if event_name == "workflow_dispatch" and manual_version:
+              should_publish = True
+              version = manual_version
+          else:
+              should_publish = previous_version != current_version
+              version = current_version
+
+          with pathlib.Path("/tmp/release_outputs.txt").open("w", encoding="utf-8") as f:
+              f.write(f"should_publish={'true' if should_publish else 'false'}\\n")
+              f.write(f"version={version}\\n")
+
+          print(
+              "Homebrew release decision:",
+              {
+                  "should_publish": should_publish,
+                  "version": version,
+                  "current_version": current_version,
+                  "previous_version": previous_version,
+                  "event_name": event_name,
+              },
+          )
+          PY
+          cat /tmp/release_outputs.txt >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+
+      - name: Skip tap update (no version change)
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && steps.release_guard.outputs.should_publish != 'true'
+        run: echo "No version change detected; skipping Homebrew tap update."
+
+      - name: Render Homebrew formula from published version
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && steps.release_guard.outputs.should_publish == 'true'
+        run: |
+          python scripts/render_homebrew_formula.py \
+            --version "${{ steps.release_guard.outputs.version }}" \
+            --output /tmp/sitemix.rb
+
+      - name: Checkout tap repository
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && steps.release_guard.outputs.should_publish == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TAP_REPOSITORY }}
+          token: ${{ env.HOMEBREW_TAP_GITHUB_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update tap formula and push
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && steps.release_guard.outputs.should_publish == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p homebrew-tap/Formula
+          cp /tmp/sitemix.rb homebrew-tap/Formula/sitemix.rb
+
+          cd homebrew-tap
+          git add Formula/sitemix.rb
+          if git diff --cached --quiet -- Formula/sitemix.rb; then
+            echo "Formula unchanged; nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "sitemix ${{ steps.release_guard.outputs.version }}"
+          git push

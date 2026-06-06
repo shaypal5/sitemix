@@ -98,18 +98,29 @@ pytest
 
 ## Homebrew distribution
 
-A formula stub is included at `packaging/homebrew/sitemix.rb`.
+A formula file lives at `packaging/homebrew/sitemix.rb` and is updated by release automation.
 
-Typical release flow:
+Automated release flow:
 
-1. Tag and publish a GitHub release (`vX.Y.Z`) with source tarball.
-2. Compute sha256 for the tarball.
-3. Update formula `url`, `sha256`, and `version`.
-4. Commit formula to your tap repository (`homebrew-<tap>`).
-5. Users install with:
+1. Bump `project.version` in `pyproject.toml` and merge to `main`.
+2. `.github/workflows/release-pypi.yml` publishes to PyPI (trusted publishing).
+3. `.github/workflows/release-homebrew.yml` renders a formula from PyPI metadata and updates `shaypal5/homebrew-tap`.
+
+Required setup:
+
+- GitHub Environment `pypi` configured for trusted publishing.
+- Repository secret `HOMEBREW_TAP_GITHUB_TOKEN` with push access to `shaypal5/homebrew-tap`.
+
+Manual maintenance command:
 
 ```bash
-brew tap <org>/tap
+python scripts/render_homebrew_formula.py --version X.Y.Z
+```
+
+Install with:
+
+```bash
+brew tap shaypal5/tap
 brew install sitemix
 ```
 
