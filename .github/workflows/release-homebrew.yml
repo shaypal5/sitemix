@@ -100,18 +100,24 @@ jobs:
           INPUT_VERSION: ${{ github.event.inputs.version }}
 
       - name: Skip tap update (no version change)
-        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && steps.release_guard.outputs.should_publish != 'true'
+        if: >-
+          env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
+          !fromJSON(steps.release_guard.outputs.should_publish)
         run: echo "No version change detected; skipping Homebrew tap update."
 
       - name: Render Homebrew formula from published version
-        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && steps.release_guard.outputs.should_publish == 'true'
+        if: >-
+          env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
+          fromJSON(steps.release_guard.outputs.should_publish)
         run: |
           python scripts/render_homebrew_formula.py \
             --version "${{ steps.release_guard.outputs.version }}" \
             --output /tmp/sitemix.rb
 
       - name: Checkout tap repository
-        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && steps.release_guard.outputs.should_publish == 'true'
+        if: >-
+          env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
+          fromJSON(steps.release_guard.outputs.should_publish)
         uses: actions/checkout@v4
         with:
           repository: ${{ env.TAP_REPOSITORY }}
@@ -119,7 +125,9 @@ jobs:
           path: homebrew-tap
 
       - name: Update tap formula and push
-        if: env.HOMEBREW_TAP_GITHUB_TOKEN != '' && steps.release_guard.outputs.should_publish == 'true'
+        if: >-
+          env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
+          fromJSON(steps.release_guard.outputs.should_publish)
         run: |
           set -euo pipefail
           mkdir -p homebrew-tap/Formula
