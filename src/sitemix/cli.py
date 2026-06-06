@@ -8,6 +8,14 @@ from urllib.parse import urlparse
 
 import typer
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 from sitemix import __version__
 from sitemix.crawl import (
@@ -109,6 +117,40 @@ def _default_site_filename(start_url: str, finished_at: str, fmt: str) -> str:
     fmt_norm = fmt.lower()
     ext = "md" if fmt_norm in {"md", "markdown"} else fmt_norm
     return f"site_{slugify(host)}_{stamp}.{ext}"
+
+
+def _should_show_progress(*, requested: bool, total: int) -> bool:
+    return requested and total > 0 and console.is_terminal
+
+
+def _new_progress() -> Progress:
+    return Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    )
+
+
+def _record_extraction_result(
+    result: PageDoc | tuple[str, str],
+    *,
+    pages: list[PageDoc],
+    extraction_skips: list[SkippedUrl],
+    verbose: bool,
+    progress_bar: Progress | None = None,
+) -> None:
+    if isinstance(result, tuple):
+        failed_url, reason = result
+        extraction_skips.append(SkippedUrl(url=failed_url, reason=reason))
+        if verbose:
+            output_console = progress_bar.console if progress_bar is not None else console
+            output_console.print(f"[yellow]Skipped:[/yellow] {failed_url} ({reason})")
+        return
+
+    pages.append(result)
 
 
 def _extract_one_url(
@@ -236,6 +278,13 @@ def site(
     out: Annotated[Path | None, typer.Option("-o", "--out", help="Output file path")] = None,
     output_format: OutputFormat = "md",
     stdout: Annotated[bool, typer.Option("--stdout", help="Write result to stdout")] = False,
+    progress: Annotated[
+        bool,
+        typer.Option(
+            "--progress/--no-progress",
+            help="Show an interactive extraction progress bar on stderr",
+        ),
+    ] = True,
     min_text_chars: Annotated[
         int, typer.Option(help="Extraction threshold before trying fallbacks")
     ] = 400,
@@ -385,6 +434,7 @@ def site(
 
     pages: list[PageDoc] = []
     extraction_skips: list[SkippedUrl] = []
+    show_progress = _should_show_progress(requested=progress, total=len(urls_to_visit))
 
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
         futures = [
@@ -400,15 +450,28 @@ def site(
             )
             for target_url in urls_to_visit
         ]
-        for fut in as_completed(futures):
-            result = fut.result()
-            if isinstance(result, tuple):
-                failed_url, reason = result
-                extraction_skips.append(SkippedUrl(url=failed_url, reason=reason))
-                if verbose:
-                    console.print(f"[yellow]Skipped:[/yellow] {failed_url} ({reason})")
-                continue
-            pages.append(result)
+
+        progress_bar = _new_progress() if show_progress else None
+        if progress_bar is None:
+            for fut in as_completed(futures):
+                _record_extraction_result(
+                    fut.result(),
+                    pages=pages,
+                    extraction_skips=extraction_skips,
+                    verbose=verbose,
+                )
+        else:
+            with progress_bar:
+                task_id = progress_bar.add_task("Extracting pages", total=len(futures))
+                for fut in as_completed(futures):
+                    _record_extraction_result(
+                        fut.result(),
+                        pages=pages,
+                        extraction_skips=extraction_skips,
+                        verbose=verbose,
+                        progress_bar=progress_bar,
+                    )
+                    progress_bar.advance(task_id)
 
     pages.sort(key=lambda item: item.url)
     skipped_urls.extend(extraction_skips)
