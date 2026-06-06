@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-06-06
+
+### Fixed
+- Write release workflow outputs with real line breaks so publish decisions
+  are parsed as single output values.
+
 ## [0.2.5] - 2026-06-06
 
 ### Fixed
