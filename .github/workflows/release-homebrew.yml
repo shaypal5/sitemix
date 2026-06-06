@@ -80,9 +80,9 @@ jobs:
               should_publish = previous_version != current_version
               version = current_version
 
-          decision = "yes" if should_publish else "no"
+          decision = "publish" if should_publish else "skip"
           with pathlib.Path("/tmp/release_outputs.txt").open("w", encoding="utf-8") as f:
-              f.write(f"should_publish={decision}\\n")
+              f.write(f"publish_decision={decision}\\n")
               f.write(f"version={version}\\n")
 
           print(
@@ -100,16 +100,20 @@ jobs:
         env:
           INPUT_VERSION: ${{ github.event.inputs.version }}
 
+      - name: Show release decision
+        if: env.HOMEBREW_TAP_GITHUB_TOKEN != ''
+        run: echo "release decision is ${{ steps.release_guard.outputs.publish_decision }}"
+
       - name: Skip tap update (no version change)
         if: >-
           env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
-          steps.release_guard.outputs.should_publish == 'no'
+          steps.release_guard.outputs.publish_decision == 'skip'
         run: echo "No version change detected; skipping Homebrew tap update."
 
       - name: Render Homebrew formula from published version
         if: >-
           env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
-          steps.release_guard.outputs.should_publish == 'yes'
+          steps.release_guard.outputs.publish_decision == 'publish'
         run: |
           python scripts/render_homebrew_formula.py \
             --version "${{ steps.release_guard.outputs.version }}" \
@@ -118,7 +122,7 @@ jobs:
       - name: Checkout tap repository
         if: >-
           env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
-          steps.release_guard.outputs.should_publish == 'yes'
+          steps.release_guard.outputs.publish_decision == 'publish'
         uses: actions/checkout@v4
         with:
           repository: ${{ env.TAP_REPOSITORY }}
@@ -128,7 +132,7 @@ jobs:
       - name: Update tap formula and push
         if: >-
           env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
-          steps.release_guard.outputs.should_publish == 'yes'
+          steps.release_guard.outputs.publish_decision == 'publish'
         run: |
           set -euo pipefail
           mkdir -p homebrew-tap/Formula
