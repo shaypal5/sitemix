@@ -39,7 +39,9 @@ from sitemix.schemas import CrawlParams, PageDoc, SiteDump, SiteMapEntry, Skippe
 from sitemix.utils import slugify, utc_now_iso
 
 app = typer.Typer(
-    help="sitemix: turn a page or small site into an LLM-oriented dump.", no_args_is_help=True
+    help="sitemix: turn a page or small site into an LLM-oriented dump.",
+    invoke_without_command=True,
+    no_args_is_help=True,
 )
 console = Console(stderr=True)
 

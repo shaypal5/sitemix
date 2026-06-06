@@ -1,12 +1,19 @@
 from typer.testing import CliRunner
 
-from sitemix import cli
+from sitemix import __version__, cli
 from sitemix.cli import app
 
 
 class _FakeConsole:
     def __init__(self, *, is_terminal: bool) -> None:
         self.is_terminal = is_terminal
+
+
+def test_version_option_prints_version_without_command() -> None:
+    result = CliRunner().invoke(app, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == __version__
 
 
 def test_site_accepts_no_progress_toggle() -> None:
