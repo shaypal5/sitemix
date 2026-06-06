@@ -30,7 +30,6 @@ jobs:
         id: release_guard
         run: |
           python - <<'PY'
-          import os
           import pathlib
           import subprocess
           import tomllib
@@ -56,10 +55,6 @@ jobs:
               f.write(f"should_publish={decision}\\n")
               f.write(f"version={current_version}\\n")
 
-          with pathlib.Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as f:
-              f.write(f"SHOULD_PUBLISH={decision}\\n")
-              f.write(f"RELEASE_VERSION={current_version}\\n")
-
           print(
               "Release decision:",
               {
@@ -72,15 +67,15 @@ jobs:
           cat /tmp/release_outputs.txt >> "$GITHUB_OUTPUT"
 
       - name: Skip publish (no version change)
-        if: ${{ env.SHOULD_PUBLISH == 'no' }}
+        if: ${{ steps.release_guard.outputs.should_publish == 'no' }}
         run: echo "No pyproject version change detected; skipping publish."
 
       - name: Build package
-        if: ${{ env.SHOULD_PUBLISH == 'yes' }}
+        if: ${{ steps.release_guard.outputs.should_publish == 'yes' }}
         run: |
           python -m pip install --upgrade pip build
           python -m build
 
       - name: Publish to PyPI
-        if: ${{ env.SHOULD_PUBLISH == 'yes' }}
+        if: ${{ steps.release_guard.outputs.should_publish == 'yes' }}
         uses: pypa/gh-action-pypi-publish@release/v1

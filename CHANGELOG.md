@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-06-06
+
+### Fixed
+- Compare release guard outputs inside GitHub Actions expressions so publish
+  steps are not skipped on version-change commits.
+
 ## [0.2.3] - 2026-06-06
 
 ### Fixed
