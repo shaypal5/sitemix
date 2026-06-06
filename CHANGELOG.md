@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-06
+
+### Added
+- Add automated PyPI trusted publishing and Homebrew tap update workflows.
+- Add a `sitemix site` extraction progress bar with `--progress/--no-progress`.
+
+### Fixed
+- Recover documentation from pages that embed Apiary API docs when normal extraction returns only short boilerplate.
+- Make `sitemix --version` work without requiring a subcommand.
+
+## [0.1.0] - 2026-02-25
+
 ### Added
 - Initial repository bootstrap.
 - `sitemix page` and `sitemix site` CLI skeleton commands.
@@ -14,8 +26,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic sitemap parsing, BFS discovery, URL normalization, and politeness controls.
 - Test scaffolding and CI workflow.
 - Project docs for design/spec/format/politeness/roadmap/tasks.
-
-## [0.1.0] - 2026-02-25
-
-### Added
-- Initial pre-release scaffolding.
