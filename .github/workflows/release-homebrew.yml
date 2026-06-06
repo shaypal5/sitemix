@@ -80,9 +80,14 @@ jobs:
               should_publish = previous_version != current_version
               version = current_version
 
+          decision = "yes" if should_publish else "no"
           with pathlib.Path("/tmp/release_outputs.txt").open("w", encoding="utf-8") as f:
-              f.write(f"should_publish={'yes' if should_publish else 'no'}\\n")
+              f.write(f"should_publish={decision}\\n")
               f.write(f"version={version}\\n")
+
+          with pathlib.Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as f:
+              f.write(f"SHOULD_PUBLISH={decision}\\n")
+              f.write(f"RELEASE_VERSION={version}\\n")
 
           print(
               "Homebrew release decision:",
@@ -102,22 +107,22 @@ jobs:
       - name: Skip tap update (no version change)
         if: >-
           env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
-          steps.release_guard.outputs.should_publish == 'no'
+          env.SHOULD_PUBLISH == 'no'
         run: echo "No version change detected; skipping Homebrew tap update."
 
       - name: Render Homebrew formula from published version
         if: >-
           env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
-          steps.release_guard.outputs.should_publish == 'yes'
+          env.SHOULD_PUBLISH == 'yes'
         run: |
           python scripts/render_homebrew_formula.py \
-            --version "${{ steps.release_guard.outputs.version }}" \
+            --version "${{ env.RELEASE_VERSION }}" \
             --output /tmp/sitemix.rb
 
       - name: Checkout tap repository
         if: >-
           env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
-          steps.release_guard.outputs.should_publish == 'yes'
+          env.SHOULD_PUBLISH == 'yes'
         uses: actions/checkout@v4
         with:
           repository: ${{ env.TAP_REPOSITORY }}
@@ -127,7 +132,7 @@ jobs:
       - name: Update tap formula and push
         if: >-
           env.HOMEBREW_TAP_GITHUB_TOKEN != '' &&
-          steps.release_guard.outputs.should_publish == 'yes'
+          env.SHOULD_PUBLISH == 'yes'
         run: |
           set -euo pipefail
           mkdir -p homebrew-tap/Formula
@@ -142,5 +147,5 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "sitemix ${{ steps.release_guard.outputs.version }}"
+          git commit -m "sitemix ${{ env.RELEASE_VERSION }}"
           git push
